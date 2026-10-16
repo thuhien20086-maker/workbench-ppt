@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>工作台 · 让投流实现自动化</title>
+<style>
+:root{
+  --gold:#D4AF37; --gold-l:#F0D060; --cyan:#22D3EE; --bg:#0A0E1A; --bg2:#111726;
+  --txt:#E8ECF4; --dim:#8B93A7; --line:rgba(212,175,55,.25);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--txt);
+  font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif}
+.deck{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+.stage{position:relative;width:100vw;height:100vh;max-width:calc(100vh*16/9);max-height:calc(100vw*9/16);
+  background:radial-gradient(ellipse at 50% 0%,rgba(212,175,55,.06),transparent 60%),var(--bg);overflow:hidden}
+.slide{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;
+  padding:5% 7%;opacity:0;visibility:hidden;transition:opacity .45s ease}
+.slide.on{opacity:1;visibility:visible}
+.slide.on .anim{animation:rise .7s ease-out both}
+.slide.on .anim:nth-child(2){animation-delay:.12s}
+.slide.on .anim:nth-child(3){animation-delay:.24s}
+.slide.on .anim:nth-child(4){animation-delay:.36s}
+.slide.on .anim:nth-child(5){animation-delay:.48s}
+@keyframes rise{from{opacity:0;transform:translateY(26px)}to{opacity:1;transform:none}}
+h1{font-size:clamp(38px,5.4vw,86px);font-weight:800;letter-spacing:.02em;line-height:1.12}
+h2{font-size:clamp(26px,3.4vw,52px);font-weight:700;line-height:1.22}
+h3{font-size:clamp(17px,1.55vw,25px);font-weight:600}
+p,li,td,th{font-size:clamp(14px,1.28vw,20px);line-height:1.75;color:var(--txt)}
+.dim{color:var(--dim)}
+.gold{background:linear-gradient(120deg,var(--gold),var(--gold-l),#FFF3C4);
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.cy{color:var(--cyan)}
+.tag{display:inline-block;padding:.32em 1.1em;border:1px solid var(--line);border-radius:100px;
+  font-size:clamp(12px,1vw,15px);letter-spacing:.22em;color:var(--gold);margin-bottom:2.2vh}
+.rule{width:76px;height:3px;background:linear-gradient(90deg,var(--gold),transparent);margin:2.2vh 0}
+.grid{display:grid;gap:clamp(12px,1.5vw,26px);width:100%}
+.g2{grid-template-columns:1fr 1fr}.g3{grid-template-columns:repeat(3,1fr)}
+.card{background:rgba(255,255,255,.028);border:1px solid rgba(255,255,255,.09);border-radius:16px;
+  padding:clamp(16px,1.9vw,30px);transition:.3s}
+.card.hl{border-color:rgba(212,175,55,.55);background:rgba(212,175,55,.055);
+  box-shadow:0 0 44px rgba(212,175,55,.13) inset}
+.card h3{margin-bottom:1vh;color:var(--gold-l)}
+.num{font-size:clamp(26px,2.9vw,46px);font-weight:800;color:var(--cyan);line-height:1}
+table{width:100%;border-collapse:collapse}
+th,td{padding:clamp(9px,1.05vw,17px) clamp(10px,1.1vw,20px);border-bottom:1px solid rgba(255,255,255,.09);text-align:left}
+th{color:var(--gold-l);font-weight:600;font-size:clamp(13px,1.13vw,18px)}
+td:first-child{color:var(--txt);font-weight:600}
+.step{display:flex;gap:1.1vw;align-items:flex-start;margin-bottom:1.5vh}
+.step .n{flex:none;width:clamp(30px,2.7vw,44px);height:clamp(30px,2.7vw,44px);border-radius:50%;
+  border:1.5px solid var(--gold);color:var(--gold);display:flex;align-items:center;justify-content:center;
+  font-weight:700;font-size:clamp(14px,1.2vw,19px)}
+.arrow{font-size:clamp(22px,2.4vw,40px);color:var(--gold);text-align:center}
+.pyr{display:flex;flex-direction:column;gap:10px;width:min(760px,100%)}
+.pyr>div{border-radius:12px;padding:clamp(12px,1.5vw,24px);text-align:center;border:1px solid rgba(255,255,255,.1)}
+.quote{font-size:clamp(17px,1.75vw,29px);line-height:1.65;font-weight:600}
+.big-quote{font-size:clamp(21px,2.4vw,40px);font-weight:800;line-height:1.5}
+.bar{position:fixed;top:0;left:0;height:3px;background:linear-gradient(90deg,var(--gold),var(--cyan));transition:width .35s;z-index:99}
+.nav{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);display:flex;gap:18px;align-items:center;z-index:99;opacity:.85}
+.nav button{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);color:#fff;
+  width:38px;height:38px;border-radius:50%;cursor:pointer;font-size:16px}
+.nav button:hover{background:rgba(212,175,55,.25)}
+.cnt{color:var(--dim);font-size:13px;min-width:52px;text-align:center}
+.loop{width:clamp(180px,19vw,300px);height:clamp(180px,19vw,300px);border-radius:50%;
+  border:2px dashed rgba(34,211,238,.5);display:flex;align-items:center;justify-content:center;
+  position:relative;margin:0 auto}
+.loop .core{width:62%;height:62%;border-radius:50%;background:rgba(212,175,55,.1);
+  border:2px solid var(--gold);display:flex;align-items:center;justify-content:center;
+  font-size:clamp(14px,1.35vw,21px);font-weight:700;color:var(--gold-l);text-align:center;line-height:1.4}
+.chip{display:inline-block;margin:.3em .4em;padding:.42em 1.05em;border-radius:10px;
+  background:rgba(34,211,238,.09);border:1px solid rgba(34,211,238,.32);color:#A5F3FC;font-size:clamp(13px,1.15vw,19px)}
+.wm{position:absolute;right:3.4%;bottom:3.2%;font-size:clamp(10px,.85vw,13px);color:rgba(139,147,167,.55);letter-spacing:.16em}
+.center{text-align:center}
+.mt1{margin-top:1.4vh}.mt2{margin-top:2.8vh}.mt3{margin-top:4.6vh}
+</style>
+</head>
+<body>
+<div class="bar" id="bar"></div>
+<div class="deck"><div class="stage" id="stage">
+
+<!-- 1 封面 -->
+<section class="slide">
+  <div class="tag anim">投流自动化系统</div>
+  <h1 class="anim gold">工 作 台</h1>
+  <div class="rule anim"></div>
+  <p class="anim" style="font-size:clamp(17px,1.9vw,31px);font-weight:600">让投流，实现自动化</p>
+  <p class="anim dim mt2 center" style="max-width:820px">把数年实战经验 · 数千小时课程 · 全国同行数据<br>装进一个越用越聪明的系统</p>
+  <div class="wm">工作台 · 2026</div>
+</section>
+
+<!-- 2 三个深夜 -->
+<section class="slide">
+  <h2 class="anim">投流人的<span class="gold">三个深夜</span></h2>
+  <div class="rule anim"></div>
+  <div class="grid g3 mt1">
+    <div class="card anim"><div class="num">01</div><h3>课程又更新了</h3><p class="dim">上个月刚学会的方法，这个月就不再适用</p></div>
+    <div class="card anim"><div class="num">02</div><h3>钱烧了，没方向</h3><p class="dim">几千块充进去，数据一大片，不知道该动哪个按钮</p></div>
+    <div class="card anim"><div class="num">03</div><h3>经验带不走</h3><p class="dim">好不容易跑通的方法，人一走，全留在脑子里带走了</p></div>
+  </div>
+  <p class="anim dim mt2">这三个夜晚，我们全都经历过。</p>
+</section>
+
+<!-- 3 三座大山 -->
+<section class="slide">
+  <h2 class="anim">为什么传统学习方式，<span class="gold">注定低效</span></h2>
+  <div class="rule anim"></div>
+  <table class="anim mt1">
+    <tr><th style="width:22%">三座大山</th><th style="width:44%">问题</th><th>代价</th></tr>
+    <tr><td>知识会过期</td><td class="dim">平台细则月月变，课程学完即过时</td><td>学得越久，可能错得越多</td></tr>
+    <tr><td>经验难沉淀</td><td class="dim">老手经验在脑子里，无法复制给团队</td><td>人走经验走，团队永远从头开始</td></tr>
+    <tr><td>数据看不懂</td><td class="dim">后台数据堆积如山，找不到重点</td><td>凭感觉调计划，钱花得不明不白</td></tr>
+  </table>
+  <p class="anim mt2 quote">不是你不努力，是<span class="gold">工具不对</span>。</p>
+</section>
+
+<!-- 4 转折 -->
+<section class="slide center">
+  <h2 class="anim">如果投流这件事，<br>可以<span class="gold">越用越聪明</span>呢？</h2>
+  <div class="rule anim" style="margin:3.4vh auto"></div>
+  <p class="anim big-quote" style="max-width:900px">把官方的每一份细则、上万小时的课程、<br>数十位运营大佬的实战经验——<br>熔炼进一个<span class="cy">会自我进化的工作台</span>。</p>
+  <p class="anim dim mt2">它不是又一份课程，不是又一个工具。<br>它是一个<span class="gold">懂你行业的投流大脑</span>。</p>
+</section>
+
+<!-- 5 面向谁 -->
+<section class="slide">
+  <h2 class="anim">它适合<span class="gold">这样的你</span></h2>
+  <div class="rule anim"></div>
+  <div class="grid g3 mt1">
+    <div class="card anim"><h3>不懂投流的老板</h3><p class="dim" style="min-height:4.6em">"我只要结果，不想研究按钮。"</p><p class="cy">→ 直接用就行<br><span class="dim" style="font-size:.92em">系统给出可执行的完整方案</span></p></div>
+    <div class="card anim"><h3>会投流的运营</h3><p class="dim" style="min-height:4.6em">"我卡住了，数据混沌，找不到突破口。"</p><p class="cy">→ 多一套顶级思路<br><span class="dim" style="font-size:.92em">从混沌里抓重点，打破瓶颈</span></p></div>
+    <div class="card anim"><h3>想规模化的团队</h3><p class="dim" style="min-height:4.6em">"我要把能力沉淀下来，不依赖某个人。"</p><p class="cy">→ 系统化资产<br><span class="dim" style="font-size:.92em">能力长在系统里，不在人脑里</span></p></div>
+  </div>
+</section>
+
+<!-- 6 三大底座 -->
+<section class="slide">
+  <h2 class="anim">工作台 · <span class="gold">三大底座</span></h2>
+  <div class="rule anim"></div>
+  <div class="pyr mt1">
+    <div class="anim hl"><h3 style="color:var(--gold-l)">③ 经验底座 · 最重要</h3><p class="dim">数年实战投流经验 + 数十位运营大佬沉淀</p></div>
+    <div class="anim"><h3 style="color:var(--cyan)">② 数据底座</h3><p class="dim">精细化颗粒度的投放数据</p></div>
+    <div class="anim"><h3>① 课程底座</h3><p class="dim">官方全部课程 + 第三方全部课程</p></div>
+  </div>
+  <p class="anim mt2 dim">三层底座，<span class="gold">全部持续更新</span>，永不失效。</p>
+</section>
+
+<!-- 7 课程库 -->
+<section class="slide">
+  <h2 class="anim">一座<span class="gold">永远不会过期</span>的课程库</h2>
+  <div class="rule anim"></div>
+  <div class="grid g2 mt1">
+    <div class="card anim"><h3>全量收录</h3><p class="dim">官方全部课程 + 第三方全部课程，一站式沉淀</p></div>
+    <div class="card anim"><h3>毫秒级更新</h3><p class="dim">官方只要出了新细则，系统第一时间同步更新</p></div>
+    <div class="card anim"><h3>主动剔除</h3><p class="dim">过时的内容立马下线，绝不误导判断</p></div>
+    <div class="card anim"><h3>持续进化</h3><p class="dim">第三方课程一直在进步，我们持续投入学习（学费已投入五位数以上）</p></div>
+  </div>
+</section>
+
+<!-- 8 数据 -->
+<section class="slide">
+  <h2 class="anim">数据不说谎，<br>但需要一双<span class="gold">看得懂的眼睛</span></h2>
+  <div class="rule anim"></div>
+  <div class="grid g3 mt1">
+    <div class="card anim"><h3>精细化颗粒度</h3><p class="dim">细到每个计划、每个时段、每一条素材</p></div>
+    <div class="card anim"><h3>结构性洞察</h3><p class="dim">不只看"花了多少来了多少"，更看结构变化</p></div>
+    <div class="card anim"><h3>有据可依</h3><p class="dim">每个决策都有数据支撑，不再凭感觉</p></div>
+  </div>
+</section>
+
+<!-- 9 经验（重点页） -->
+<section class="slide center">
+  <div class="tag anim">最 重 要 的 部 分</div>
+  <h2 class="anim">最贵的，从来<span class="gold">不是课程</span></h2>
+  <div class="rule anim" style="margin:3.2vh auto"></div>
+  <p class="anim big-quote" style="max-width:880px">课程可以买到，数据可以导出。<br>但经验——<span class="gold">几年踩过的坑、烧过的钱、跑通的模型</span>——买不到。</p>
+  <p class="anim mt2 dim" style="max-width:760px">我们做了最难的一件事：<br>把数年的实战投流经验，加上数十位运营大佬的经验沉淀，<br>全部熔炼进了这个系统。</p>
+</section>
+
+<!-- 10 越用越聪明 -->
+<section class="slide">
+  <h2 class="anim">它不是工具，它是你的<span class="gold">投流大脑</span></h2>
+  <div class="rule anim"></div>
+  <div class="grid g2 mt1" style="align-items:center">
+    <div class="anim"><div class="loop"><div class="core">越用<br>越聪明</div></div></div>
+    <div class="anim">
+      <div class="step"><div class="n">1</div><div><h3>它记得你的行业</h3><p class="dim">越来越匹配你的赛道</p></div></div>
+      <div class="step"><div class="n">2</div><div><h3>它熟悉你的数据</h3><p class="dim">越来越贴合你的盘子</p></div></div>
+      <div class="step"><div class="n">3</div><div><h3>它积累你的反馈</h3><p class="dim">越来越懂你的打法</p></div></div>
+      <p class="mt1 quote">越用越顺，<span class="gold">越用越懂你</span>。</p>
+    </div>
+  </div>
+</section>
+
+<!-- 11 素材 -->
+<section class="slide">
+  <h2 class="anim">从"不知道拍什么"，到<span class="gold">"照着拍就行"</span></h2>
+  <div class="rule anim"></div>
+  <div class="grid g2 mt1" style="align-items:center">
+    <div class="anim">
+      <p class="dim" style="margin-bottom:1.2vh">你只需回答 4 个问题：</p>
+      <div class="step"><div class="n">1</div><div>你是做什么行业的</div></div>
+      <div class="step"><div class="n">2</div><div>你能给客户提供什么价值</div></div>
+      <div class="step"><div class="n">3</div><div>你的实力是什么</div></div>
+      <div class="step"><div class="n">4</div><div>你的目标人群（年龄段 / 地域）</div></div>
+    </div>
+    <div class="anim center">
+      <div class="arrow">↓</div>
+      <div class="card hl mt1">
+        <h3>系统输出</h3>
+        <p>素材方向——拍什么<br>拍摄方法——怎么拍<br>脚本细节——说什么</p>
+      </div>
+    </div>
+  </div>
+  <p class="anim mt1 dim">独家能力：系统持续<span class="cy">抓取全国同行的投流素材</span>，不断学习对比——<br>你看到的不仅是我们给的建议，而是<span class="gold">整个行业正在验证的打法</span>。</p>
+</section>
+
+<!-- 12 建计划 -->
+<section class="slide">
+  <h2 class="anim">会投的、不会投的，<span class="gold">都照顾好</span></h2>
+  <div class="rule anim"></div>
+  <div class="grid g2 mt1">
+    <div class="card anim"><h3>如果你不会投</h3><p class="quote mt1">直接用就行。</p><p class="dim">系统给出专业、合理的建议，照着做就好。</p></div>
+    <div class="card hl anim"><h3>如果你会投</h3><p class="mt1">· 提供<span class="cy">不同的思路</span>，打破惯性<br>· 从<span class="cy">混沌的数据中找到线索</span><br>· 在你找不清眉目时，<span class="cy">帮你抓住重点</span></p><p class="gold mt1" style="font-weight:700">ROA 越来越好 · 有效性越来越好 · 成本越来越低</p></div>
+  </div>
+</section>
+
+<!-- 13 终极价值 -->
+<section class="slide center">
+  <h2 class="anim">把投流这件苦差事，<br>从"人工"变成<span class="gold">"自动"</span></h2>
+  <div class="rule anim" style="margin:3.2vh auto"></div>
+  <div class="grid g3 mt1" style="max-width:1000px">
+    <div class="card anim"><h3>运营放心</h3><p class="dim">不再凭感觉打仗</p></div>
+    <div class="card anim"><h3>老板安心</h3><p class="dim">每一分钱都花得明白</p></div>
+    <div class="card anim"><h3>解放双手</h3><p class="dim">把精力投到更重要的事</p></div>
+  </div>
+  <p class="anim big-quote mt3 gold">让专业的事，交给专业的大脑。</p>
+</section>
+
+<!-- 14 对比 -->
+<section class="slide">
+  <h2 class="anim">四种路径，<span class="gold">一个答案</span></h2>
+  <div class="rule anim"></div>
+  <table class="anim mt1">
+    <tr><th></th><th>自学课程</th><th>招人 / 外包</th><th>通用工具</th><th style="color:var(--gold-l)">工作台</th></tr>
+    <tr><td>知识时效</td><td class="dim">学完即过时</td><td class="dim">依赖个人</td><td class="dim">无课程</td><td class="cy">毫秒级更新</td></tr>
+    <tr><td>经验沉淀</td><td class="dim">无</td><td class="dim">人走经验走</td><td class="dim">无</td><td class="cy">系统级沉淀</td></tr>
+    <tr><td>数据解读</td><td class="dim">靠自己</td><td class="dim">看人水平</td><td class="dim">只呈现不解读</td><td class="cy">直接给思路</td></tr>
+    <tr><td>使用门槛</td><td class="dim">高</td><td class="dim">高</td><td class="dim">中</td><td class="cy">回答 4 个问题</td></tr>
+    <tr><td>越用越聪明</td><td class="dim">✗</td><td class="dim">✗</td><td class="dim">✗</td><td class="gold" style="font-weight:700">✓ 核心机制</td></tr>
+  </table>
+</section>
+
+<!-- 15 怎么用 -->
+<section class="slide">
+  <h2 class="anim">从今天起，<span class="gold">让系统帮你投</span></h2>
+  <div class="rule anim"></div>
+  <div class="mt1" style="width:min(820px,100%)">
+    <div class="step anim"><div class="n">1</div><div><h3>告诉我你的行业与目标</h3></div></div>
+    <div class="step anim"><div class="n">2</div><div><h3>拿到素材方向与脚本</h3></div></div>
+    <div class="step anim"><div class="n">3</div><div><h3>按建议搭建计划（或直接用推荐方案）</h3></div></div>
+    <div class="step anim"><div class="n">4</div><div><h3>每天看系统建议，越用越顺</h3></div></div>
+  </div>
+  <p class="anim mt2 dim">全程无需投流基础。</p>
+</section>
+
+<!-- 16 版本 -->
+<section class="slide">
+  <h2 class="anim">选择适合你的<span class="gold">版本</span></h2>
+  <div class="rule anim"></div>
+  <div class="grid g3 mt1">
+    <div class="card anim"><h3>体验版</h3><p class="dim">想先看看效果</p><p class="mt1"><span class="chip">基础能力</span><span class="chip">素材方向</span></p></div>
+    <div class="card hl anim"><h3>标准版</h3><p class="dim">单店 / 单人操盘</p><p class="mt1"><span class="chip">全部课程库</span><span class="chip">数据洞察</span><span class="chip">建计划建议</span></p></div>
+    <div class="card anim"><h3>团队版</h3><p class="dim">多账户 / 团队</p><p class="mt1"><span class="chip">全部能力</span><span class="chip">团队沉淀</span><span class="chip">专属服务</span></p></div>
+  </div>
+  <p class="anim mt2 dim">具体权益与价格，面谈定制。</p>
+</section>
+
+<!-- 17 行动 -->
+<section class="slide center">
+  <h2 class="anim">现在，让投流开始<span class="gold">自动运转</span></h2>
+  <div class="rule anim" style="margin:3.2vh auto"></div>
+  <p class="anim quote" style="max-width:820px">我们不做一次性交付。<br>你带走的不是一个工具，<br>而是一个<span class="gold">会陪你的生意一起成长的系统</span>。</p>
+  <p class="anim dim mt3">（联系方式）</p>
+</section>
+
+<!-- 18 封底 -->
+<section class="slide center">
+  <h1 class="anim gold" style="font-size:clamp(30px,4vw,64px)">工 作 台</h1>
+  <div class="rule anim" style="margin:2.6vh auto"></div>
+  <p class="anim" style="font-size:clamp(16px,1.7vw,27px);font-weight:600">越用越懂你的投流大脑</p>
+</section>
+
+</div></div>
+
+<div class="nav">
+  <button onclick="go(-1)">←</button>
+  <span class="cnt"><span id="cur">1</span> / <span id="tot">18</span></span>
+  <button onclick="go(1)">→</button>
+</div>
+
+<script>
+let i=1;const S=[...document.querySelectorAll('.slide')];const N=S.length;
+document.getElementById('tot').textContent=N;
+function show(n){if(n<1)n=1;if(n>N)n=N;i=n;S.forEach((s,k)=>s.classList.toggle('on',k===n-1));
+document.getElementById('cur').textContent=n;document.getElementById('bar').style.width=(n/N*100)+'%';}
+function go(d){show(i+d);}
+document.addEventListener('keydown',e=>{if(e.key==='ArrowRight'||e.key===' ')  {e.preventDefault();go(1);}if(e.key==='ArrowLeft'){e.preventDefault();go(-1);}});
+document.addEventListener('click',e=>{if(!e.target.closest('.nav'))go(1);});
+if(location.hash==='#all'){S.forEach(s=>s.classList.add('on'));}
+else show(1);
+</script>
+</body>
+</html>
